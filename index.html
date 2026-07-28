@@ -2,389 +2,850 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- viewport-fit=cover: iPhone のノッチ／ホームバーまで背景を広げ、
+       中身は safe-area-inset で よけて表示する -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>おんたまドリル</title>
-  
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  
-  <script src="https://unpkg.com/@babel/standalone@7.21.4/babel.min.js"></script>
+  <meta name="description" content="小学生向けの学習ドリルアプリがあつまるポータル。漢字・計算・地図などのドリルに取り組んでスコアをためると、ランクが上がります。">
 
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- ===== PWA：インストールの合図を いちばん先に うけとる =====
+       Chrome は 条件がそろうと ページの読みこみ中に beforeinstallprompt を
+       出す。この登録が あとまわしだと 合図を とりのがして
+       「インストール」ボタンが 出なくなるため、いちばん上に置く。 -->
+  <script>
+    window.__deferredInstallPrompt = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      window.__deferredInstallPrompt = e;
+      window.dispatchEvent(new Event('pwa-installable'));
+    });
+    window.addEventListener('appinstalled', function () {
+      window.__deferredInstallPrompt = null;
+      window.dispatchEvent(new Event('pwa-installed'));
+    });
+  </script>
+
+  <!-- ===== PWA（アプリとしてインストール／オフライン） ===== -->
+  <link rel="manifest" href="./manifest.webmanifest">
+  <meta name="theme-color" content="#3D405B">
+  <meta name="color-scheme" content="light">
+  <link rel="icon" href="./favicon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="./icons/icon-512.png">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="おんたまドリル">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="icon" href="favicon.png">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
 
   <style>
+    /* =================================================================
+     *  おんたまドリル ポータル — スタイル
+     *  -----------------------------------------------------------------
+     *  以前は Tailwind / React / Babel を CDN から読みこんでいたが、
+     *  画面の中身は「カードの一覧」と「ランク表示」だけで、
+     *  ブラウザ内で JSX を翻訳するコスト（Babel standalone だけで数MB）に
+     *  見合わない。見た目はそのままに、素の CSS + JS に置きかえてある。
+     *  おかげで オフライン（PWA）でも 確実に 表示できる。
+     * ================================================================= */
+
+    :root {
+      --terracotta: #E07A5F;
+      --sage:       #81B29A;
+      --mustard:    #F2CC8F;
+      --navy:       #3D405B;
+      --navy-dark:  #2b2d42;
+      --paper:      #F4F1DE;
+      --board:      #e8e4cf;
+      --board-edge: #d4d0bc;
+
+      /* 画面のふち（左右のあき）。せまい端末ほど小さくして、
+         メインの内容を できるだけ広く見せる */
+      --gutter: 12px;
+      /* 中身の最大はば。タブレット・PC では 以前(896px)より広げ、
+         カードを大きく・多く ならべられるようにした */
+      --content-max: 1180px;
+    }
+    @media (min-width: 640px)  { :root { --gutter: 20px; } }
+    @media (min-width: 1024px) { :root { --gutter: 32px; } }
+    /* 大きな画面では さらに広げて、カードを 5列 ならべる */
+    @media (min-width: 1440px) { :root { --content-max: 1300px; } }
+
+    * { box-sizing: border-box; }
+
+    html { -webkit-text-size-adjust: 100%; }
+
     body {
-      font-family: 'M PLUS Rounded 1c', sans-serif;
-      background-color: #F4F1DE; 
-      background-image: 
+      margin: 0;
+      min-height: 100dvh;
+      font-family: 'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', 'Yu Gothic',
+                   system-ui, -apple-system, sans-serif;
+      color: var(--navy);
+      background-color: var(--paper);
+      background-image:
         radial-gradient(#e5e0c8 15%, transparent 16%),
         radial-gradient(#e5e0c8 15%, transparent 16%);
       background-size: 20px 20px;
       background-position: 0 0, 10px 10px;
+      background-attachment: fixed;
+      -webkit-tap-highlight-color: transparent;
     }
-    
-    .masking-tape {
-      position: absolute;
-      top: -10px;
-      left: 50%;
-      transform: translateX(-50%) rotate(-2deg);
-      width: 80px;
-      height: 25px;
-      background-color: rgba(255, 255, 255, 0.6);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      z-index: 10;
-    }
-    .tape-terracotta { background-color: rgba(224, 122, 95, 0.7); }
-    .tape-sage { background-color: rgba(129, 178, 154, 0.7); }
-    .tape-mustard { background-color: rgba(242, 204, 143, 0.8); }
 
-    .progress-bar-striped {
-      background-image: linear-gradient(45deg, rgba(255,255,255,.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.15) 50%, rgba(255,255,255,.15) 75%, transparent 75%, transparent);
+    .page {
+      min-height: 100dvh;
+      padding:
+        calc(env(safe-area-inset-top) + 16px)
+        calc(env(safe-area-inset-right) + var(--gutter))
+        calc(env(safe-area-inset-bottom) + 24px)
+        calc(env(safe-area-inset-left) + var(--gutter));
+    }
+
+    .wrap { width: 100%; max-width: var(--content-max); margin-inline: auto; }
+
+    /* ---------- ヘッダー ---------- */
+    header.wrap { display: flex; flex-direction: column; gap: 16px; margin-bottom: 32px; }
+
+    .title-box {
+      position: relative;
+      overflow: hidden;
+      background: var(--navy);
+      border: 8px solid var(--navy-dark);
+      border-radius: 14px;
+      padding: clamp(16px, 4vw, 24px);
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,.1), 0 4px 6px -4px rgba(0,0,0,.1);
+    }
+    /* 方眼のようなドットの重ねがさね（もとのデザインを踏襲） */
+    .title-box::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: .1;
+      background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIi8+CjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiLz4KPC9zdmc+");
+    }
+    .title-inner { position: relative; z-index: 1; text-align: center; }
+    .title-row { display: flex; align-items: center; justify-content: center; gap: 12px; }
+    .title-row h1 {
+      margin: 0;
+      font-size: clamp(1.6rem, 5.5vw, 2.25rem);
+      font-weight: 800;
+      letter-spacing: .1em;
+      color: #fff;
+      text-shadow: 2px 2px 4px rgba(0,0,0,.3);
+    }
+    .title-lead {
+      margin: 10px 0 0;
+      color: var(--paper);
+      font-size: clamp(.8rem, 2.6vw, 1rem);
+      line-height: 1.7;
+    }
+
+    /* ---------- ランクカード ---------- */
+    .status {
+      background: #fff;
+      border: 2px solid #e5e7eb;
+      border-radius: 14px;
+      padding: clamp(14px, 3.5vw, 20px);
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -2px rgba(0,0,0,.1);
+    }
+    .status-top {
+      display: flex; flex-wrap: wrap; align-items: center;
+      justify-content: space-between; gap: 16px;
+    }
+    .status-rank { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .lv-badge {
+      flex: none;
+      width: 64px; height: 64px; border-radius: 50%;
+      display: grid; place-items: center;
+      color: #fff; font-weight: 800; font-size: 1.15rem;
+      border: 4px solid #fff;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,.25);
+    }
+    .status-label { margin: 0; font-size: .8rem; font-weight: 700; color: #6b7280; }
+    .rank-title {
+      margin: 2px 0 0;
+      font-size: clamp(1.05rem, 3.6vw, 1.5rem);
+      font-weight: 800;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
+    .status-score { text-align: right; margin-left: auto; }
+    .score-value { margin: 4px 0 0; font-size: clamp(1.6rem, 6vw, 1.9rem); font-weight: 800; color: var(--navy); }
+    .score-value span { font-size: .6em; }
+
+    .bar-labels {
+      display: flex; justify-content: space-between; gap: 8px;
+      margin: 16px 0 5px;
+      font-size: .7rem; font-weight: 700; color: #6b7280;
+    }
+    .bar-labels .mid { text-align: center; }
+    .bar-track {
+      width: 100%; height: 16px; border-radius: 999px; overflow: hidden;
+      background: #e5e7eb; box-shadow: inset 0 2px 4px rgba(0,0,0,.08);
+    }
+    .bar-fill {
+      height: 100%; border-radius: 999px;
+      transition: width 1s ease-out;
+      background-image: linear-gradient(45deg,
+        rgba(255,255,255,.15) 25%, transparent 25%, transparent 50%,
+        rgba(255,255,255,.15) 50%, rgba(255,255,255,.15) 75%, transparent 75%, transparent);
       background-size: 1rem 1rem;
+    }
+
+    /* ---------- インストールボタン ---------- */
+    .install-row { display: flex; justify-content: center; }
+    .btn-install {
+      display: none;
+      align-items: center; gap: 8px;
+      padding: 10px 22px;
+      border: none; border-radius: 999px;
+      background: var(--sage); color: #fff;
+      font-family: inherit; font-size: .95rem; font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,.12);
+      transition: transform .15s, filter .15s;
+    }
+    .btn-install.is-shown { display: inline-flex; }
+    .btn-install:hover { filter: brightness(1.06); transform: translateY(-1px); }
+    .btn-install:active { transform: translateY(0); }
+
+    /* ---------- ドリルの板 ---------- */
+    .board-outer { position: relative; }
+    .pin {
+      position: absolute; top: -12px;
+      width: 24px; height: 24px; border-radius: 50%;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,.2);
+      z-index: 2;
+    }
+    .pin::after {
+      content: ''; position: absolute; top: 4px; left: 4px;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #fff; opacity: .6;
+    }
+    .pin-left  { left: -12px;  background: #ef4444; border: 1px solid #b91c1c; }
+    .pin-right { right: -12px; background: #3b82f6; border: 1px solid #1d4ed8; }
+
+    .board {
+      background: var(--board);
+      border: 1px solid var(--board-edge);
+      border-radius: 12px;
+      padding: clamp(14px, 3.2vw, 32px);
+      box-shadow: inset 0 2px 4px rgba(0,0,0,.06);
+    }
+
+    /* カードの列。はばに応じて 自動で 列を増やす。
+       スマホでも 2列 ならぶようにして、スクロールを みじかくする。
+       タブレット・PC では 3〜5列 まで ふえる。 */
+    .grid {
+      display: grid;
+      gap: clamp(10px, 2.2vw, 26px);
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+    @media (min-width: 480px)  { .grid { grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); } }
+    @media (min-width: 768px)  { .grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); } }
+    @media (min-width: 1024px) { .grid { grid-template-columns: repeat(auto-fill, minmax(205px, 1fr)); } }
+
+    .section-label {
+      display: flex; align-items: center; gap: 8px;
+      margin: 28px 0 14px;
+      font-size: .85rem; font-weight: 700; color: #6b7280;
+    }
+    .section-label::after {
+      content: ''; flex: 1; height: 2px; border-radius: 2px;
+      background: var(--board-edge);
+    }
+    .section-label:first-child { margin-top: 0; }
+
+    /* ---------- ドリルのカード ---------- */
+    .card {
+      position: relative;
+      display: flex; flex-direction: column; align-items: center;
+      text-align: center; text-decoration: none; color: inherit;
+      background: #fff;
+      border-radius: 8px;
+      border-top: 4px solid var(--c);
+      padding: clamp(18px, 4.5vw, 24px) clamp(10px, 3vw, 18px) clamp(12px, 3vw, 18px);
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -2px rgba(0,0,0,.1);
+      transition: box-shadow .2s, transform .2s;
+    }
+    .card:hover, .card:focus-visible {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,.1), 0 8px 10px -6px rgba(0,0,0,.1);
+    }
+    .card:focus-visible { outline: 3px solid var(--navy); outline-offset: 3px; }
+
+    /* 上に貼った マスキングテープ */
+    .card::before {
+      content: '';
+      position: absolute; top: -10px; left: 50%;
+      width: 80px; height: 25px;
+      transform: translateX(-50%) rotate(-2deg);
+      background: rgba(255, 255, 255, .6);
+      box-shadow: 0 1px 3px rgba(0,0,0,.1);
+      z-index: 1;
+    }
+
+    .card-icon {
+      width: clamp(56px, 15vw, 80px); height: clamp(56px, 15vw, 80px);
+      border-radius: 50%;
+      display: grid; place-items: center;
+      margin-bottom: clamp(10px, 2.5vw, 16px);
+      color: #fff;
+      background: var(--c);
+      box-shadow: inset 0 2px 4px rgba(0,0,0,.2);
+      transition: transform .2s;
+    }
+    .card:hover .card-icon { transform: scale(1.1); }
+    .card-icon svg { width: 50%; height: 50%; }
+    /* うすい色のカードは 白アイコンだと 見えないので 文字色を反転する */
+    .card.is-pale .card-icon { color: var(--navy); }
+
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: clamp(.98rem, 3.6vw, 1.2rem);
+      font-weight: 800; line-height: 1.35; color: var(--navy);
+    }
+    .card .grade {
+      display: inline-block;
+      margin-bottom: 10px; padding: 3px 8px;
+      border-radius: 4px;
+      background: #f3f4f6; color: #4b5563;
+      font-size: clamp(.66rem, 2.2vw, .72rem); font-weight: 700;
+    }
+    .card .desc {
+      flex: 1; margin: 0;
+      font-size: clamp(.75rem, 2.6vw, .85rem); line-height: 1.6; color: #4b5563;
+    }
+    .card .pts {
+      margin: 10px 0 0; font-size: clamp(.65rem, 2.2vw, .72rem); font-weight: 700; color: #6b7280;
+      display: flex; align-items: center; justify-content: center; gap: 4px;
+    }
+    .card .pts svg { flex: none; width: 13px; height: 13px; }
+    .card .open {
+      width: 100%; margin-top: clamp(10px, 2.5vw, 16px);
+      padding: clamp(7px, 2vw, 9px) 12px;
+      border-radius: 999px;
+      background: var(--c); color: #fff;
+      font-size: clamp(.82rem, 2.8vw, .95rem); font-weight: 700;
+    }
+    .card.is-pale .open { color: var(--navy); }
+    .card .open .ext { font-size: .8em; opacity: .85; }
+
+    /* ---------- フッター ---------- */
+    footer.wrap {
+      margin-top: 40px; text-align: center;
+      font-size: .8rem; font-weight: 700; line-height: 1.8;
+      color: var(--navy); opacity: .7;
+    }
+
+    /* ---------- インストール案内（iOS など） ---------- */
+    .modal-back {
+      position: fixed; inset: 0; z-index: 50;
+      display: grid; place-items: center;
+      padding: 20px;
+      background: rgba(45, 45, 66, .55);
+    }
+    .modal-back[hidden] { display: none; }
+    .modal {
+      width: 100%; max-width: 420px;
+      max-height: 85dvh; overflow-y: auto;
+      background: #fff; border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,.35);
+    }
+    .modal h2 { margin: 0 0 4px; font-size: 1.15rem; color: var(--navy); }
+    .modal p  { font-size: .9rem; line-height: 1.8; color: #4b5563; }
+    .modal ol { margin: 0; padding-left: 1.3em; font-size: .9rem; line-height: 2; color: #4b5563; }
+    .modal .close {
+      width: 100%; margin-top: 20px; padding: 11px;
+      border: none; border-radius: 999px;
+      background: var(--navy); color: #fff;
+      font-family: inherit; font-size: .95rem; font-weight: 700; cursor: pointer;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
     }
   </style>
 </head>
 <body>
-  <div id="root"></div>
 
-  <script type="text/babel">
-    const { useState, useEffect } = React;
+  <!-- ===== アイコン（SVGスプライト） =====
+       もとは lucide を CDN から読みこんでいたが、
+       ・`sushi` `&#x1fa99;` など lucide に無い名前が指定されていて
+         5枚以上のカードで アイコンが 表示されていなかった
+       ・カードごとに createIcons() を呼び直していて むだが多かった
+       ため、必要な分だけ ここに 直接置いている。 -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+    <symbol id="i-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 20l1.2-4.2L16.4 4.6a2.12 2.12 0 0 1 3 3L8.2 18.8 4 20z"/><path d="M13.8 7.2l3 3"/>
+    </symbol>
+    <symbol id="i-calculator" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4" y="2.5" width="16" height="19" rx="2.5"/><path d="M8 6.5h8"/>
+      <path d="M8 11h.01M12 11h.01M16 11h.01M8 14.5h.01M12 14.5h.01M16 14.5h.01M8 18h.01M12 18h.01M16 18h.01"/>
+    </symbol>
+    <symbol id="i-map" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 4.5L3 7v13l6-2.5 6 2.5 6-2.5v-13L15 7 9 4.5z"/><path d="M9 4.5v13M15 7v13"/>
+    </symbol>
+    <symbol id="i-egg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2.5c3.6 0 6.5 5.4 6.5 10a6.5 6.5 0 0 1-13 0c0-4.6 2.9-10 6.5-10z"/>
+    </symbol>
+    <symbol id="i-coin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/>
+      <path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3"/>
+    </symbol>
+    <symbol id="i-keyboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2.2" y="5.5" width="19.6" height="13" rx="2.5"/>
+      <path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 12.5h.01M10 12.5h.01M14 12.5h.01M18 12.5h.01"/>
+      <path d="M8 16h8"/>
+    </symbol>
+    <symbol id="i-puzzle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9.5 3.5a2 2 0 0 1 4 0c0 .6-.3 1-.3 1.5h3.6a1 1 0 0 1 1 1v3.6c.5 0 .9-.3 1.5-.3a2 2 0 0 1 0 4c-.6 0-1-.3-1.5-.3v3.6a1 1 0 0 1-1 1h-3.6c0 .5.3.9.3 1.5a2 2 0 0 1-4 0c0-.6.3-1 .3-1.5H6.2a1 1 0 0 1-1-1v-3.6c-.5 0-.9.3-1.5.3a2 2 0 0 1 0-4c.6 0 1 .3 1.5.3V6a1 1 0 0 1 1-1h3.6c0-.5-.3-.9-.3-1.5z"/>
+    </symbol>
+    <!-- 100マス計算：たてよこの見出しがついた ます目 -->
+    <symbol id="i-grid100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2.5"/>
+      <path d="M3 8.5h18M3 14h18M8.5 3v18M14 3v18"/>
+    </symbol>
+    <!-- けいさんカード：かさねた 2まいのカード -->
+    <symbol id="i-cards" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="8.5" y="2.8" width="12.5" height="15.5" rx="2.4" transform="rotate(8 14.75 10.55)"/>
+      <rect x="3" y="5.4" width="12.5" height="15.5" rx="2.4"/>
+      <path d="M6.4 13.2h5.7M9.25 10.35v5.7"/>
+    </symbol>
+    <!-- 九九カード：かけ算のカード -->
+    <symbol id="i-times" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="8.5" y="2.8" width="12.5" height="15.5" rx="2.4" transform="rotate(8 14.75 10.55)"/>
+      <rect x="3" y="5.4" width="12.5" height="15.5" rx="2.4"/>
+      <path d="M7.2 11.2l4.1 4.1M11.3 11.2l-4.1 4.1"/>
+    </symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 4v10m0 0l-4-4m4 4l4-4"/><path d="M4.5 19.5h15"/>
+    </symbol>
+    <symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3.5l2.6 5.2 5.9.9-4.25 4.15 1 5.85L12 16.85 6.75 19.6l1-5.85L3.5 9.6l5.9-.9L12 3.5z"/>
+    </symbol>
+    <symbol id="i-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 4h6v6"/><path d="M20 4l-8.5 8.5"/>
+      <path d="M18 14.5V19a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 19V8a1.5 1.5 0 0 1 1.5-1.5H10"/>
+    </symbol>
+  </svg>
 
-    // アプリのデータ定義
-    const appData = [
-      {
-        id: 1,
-        title: 'カンジノート',
-        grade: '1ねんせい〜',
-        description: '毎日コツコツ！漢字の練習をしよう。',
-        url: 'https://hot-spring-egg.github.io/kanji-note/',
-        icon: 'pencil',
-        color: '#E07A5F', // テラコッタ
-        tapeClass: 'tape'
-      },
-      {
-        id: 2,
-        title: 'サンスウノート',
-        grade: '1ねんせい〜',
-        description: 'すばやく正確に計算する力をつけよう！',
-        url: 'https://hot-spring-egg.github.io/sansu-note/',
-        icon: 'calculator',
-        color: '#81B29A', // セージグリーン
-        tapeClass: 'tape'
-      },
-      {
-        id: 3,
-        title: 'モジノート',
-        grade: '1ねんせい〜',
-        description: 'ひらがな・カタカナをきれいに書こう！',
-        url: 'https://hot-spring-egg.github.io/moji-note/',
-        icon: 'pencil',
-        color: '#F2CC8F', // マスタード
-        tapeClass: 'tape'
-      },
-      {
-        id: 4,
-        title: 'チズノート',
-        grade: '4ねんせい〜',
-        description: '都道府県をおぼえよう！',
-        url: 'https://hot-spring-egg.github.io/chizu-note/',
-        icon: 'map',
-        color: '#3D405B', // ブルーグレー 
-        tapeClass: 'tape'
-      },
-      {
-        id: 5,
-        title: 'チズキゴウノート',
-        grade: '3ねんせい〜',
-        description: '地図記号をおぼえよう！',
-        url: 'https://hot-spring-egg.github.io/chizu-mark-note/',
-        icon: 'map',
-        color: '#8B7A8B', // ヘザーパープル
-        tapeClass: 'tape'
-      },
-      {
-        id: 6,
-        title: 'ケイサンアタック！',
-        grade: '1ねんせい〜',
-        description: 'さぁ、けいさんとっくんしよう！',
-        url: 'https://hot-spring-egg.github.io/keisan-attack/',
-        icon: 'calculator',
-        color: '#5E7A96', // ステートブルー
-        tapeClass: 'tape'
-      },
-      {
-        id: 7,
-        title: 'おんたまカブカブ',
-        grade: '1ねんせい〜',
-        description: 'スコアをコインにかえてふやそう！',
-        url: 'https://hot-spring-egg.github.io/ontama-kabukabu/',
-        icon: '&#x1fa99;',
-        color: '#E0E2E4', // ストーンライトグレー
-        tapeClass: 'tape'
-      },
-      {
-        id: 8,
-        title: '寿司打',
-        grade: '2ねんせい〜',
-        description: '※スコアには入りません',
-        url: 'https://sushida.net/play.html',
-        icon: 'sushi',
-        color: '#D47F31', // アンバー
-        tapeClass: 'tape'
-      },
-      {
-        id: 9,
-        title: 'プレイグラム',
-        grade: '2ねんせい〜',
-        description: '※スコアには入りません',
-        url: 'https://typing.playgram.jp/',
-        icon: 'sushi',
-        color: '#6B7F5E', // モスグリーン
-        tapeClass: 'tape'
-      },
-      {
-        id: 10,
-        title: 'タイピンガーZ',
-        grade: '2ねんせい〜',
-        description: '※スコアには入りません',
-        url: 'https://typingerz.com/',
-        icon: 'sushi',
-        color: '#7B5C52', // ココアブラウン
-        tapeClass: 'tape'
-      },
-      {
-        id: 11,
-        title: 'スクラッチ',
-        grade: '4〜6ねんせい',
-        description: '※スコアには入りません',
-        url: 'https://scratch.mit.edu/',
-        icon: 'sushi',
-        color: '#9E473D', // レンガ
-        tapeClass: 'tape'
-      },
-      {
-        id: 12,
-        title: 'ビスケット',
-        grade: '1〜4ねんせい',
-        description: '※スコアには入りません',
-        url: 'https://www.viscuit.com/',
-        icon: 'sushi',
-        color: '#E4AE38', // サフラン
-        tapeClass: 'tape'
-      }
-    ];
-
-    // 20段階のランクデータ
-    const rankData = [
-      { level: 1, min: 0, title: 'みならい タンケンカ', color: '#81B29A' },
-      { level: 2, min: 10, title: 'かけだしの レンジャー', color: '#E07A5F' },
-      { level: 3, min: 30, title: 'がんばる チャレンジャー', color: '#3D405B' },
-      { level: 4, min: 100, title: 'いっぱしの マイスター', color: '#F2CC8F' },
-      { level: 5, min: 300, title: 'ゆめみる トラベラー', color: '#81B29A' },
-      { level: 6, min: 800, title: 'のびざかりの クリエイター', color: '#E07A5F' },
-      { level: 7, min: 2000, title: 'ちえの ぼうけんしゃ', color: '#3D405B' },
-      { level: 8, min: 5000, title: 'ひらめきの ナビゲーター', color: '#F2CC8F' },
-      { level: 9, min: 10000, title: 'はなまる キャプテン', color: '#81B29A' },
-      { level: 10, min: 25000, title: 'かがやく エース', color: '#E07A5F' },
-      { level: 11, min: 50000, title: 'ゆうきの ヒーロー', color: '#3D405B' },
-      { level: 12, min: 100000, title: 'きぼうの パイオニア', color: '#F2CC8F' },
-      { level: 13, min: 250000, title: 'みらいの プロフェッショナル', color: '#81B29A' },
-      { level: 14, min: 500000, title: 'すばらしき エキスパート', color: '#E07A5F' },
-      { level: 15, min: 1000000, title: 'たのもしい リーダー', color: '#3D405B' },
-      { level: 16, min: 2000000, title: 'まぼろしの マスター', color: '#F2CC8F' },
-      { level: 17, min: 4000000, title: 'きせきの レジェンド', color: '#81B29A' },
-      { level: 18, min: 6000000, title: 'むてきの チャンピオン', color: '#E07A5F' },
-      { level: 19, min: 8000000, title: 'ぎんがの だいスター', color: '#3D405B' },
-      { level: 20, min: 10000000, title: 'むげんの ユニバース', color: '#F2CC8F' }
-    ];
-
-    // スコアから現在のランク情報を計算する関数
-    const getRankInfo = (score) => {
-      for (let i = 0; i < rankData.length; i++) {
-        // 最終レベルに到達した場合
-        if (i === rankData.length - 1) {
-          return { ...rankData[i], next: rankData[i].min };
-        }
-        // 次のレベルの基準点に達していない場合、現在のレベルを返す
-        if (score < rankData[i + 1].min) {
-          return { ...rankData[i], next: rankData[i + 1].min };
-        }
-      }
-    };
-
-    const Icon = ({ name, size = 24, color = "currentColor", className = "" }) => {
-      useEffect(() => {
-        lucide.createIcons();
-      }, [name]);
-      return <i data-lucide={name} width={size} height={size} stroke={color} className={className}></i>;
-    };
-
-    const AppCard = ({ app }) => {
-      const handleClick = () => {
-        window.location.href = app.url;
-      };
-
-      return (
-        <div 
-          onClick={handleClick}
-          className="relative bg-white p-6 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer flex flex-col items-center text-center group"
-          style={{ borderTop: `4px solid ${app.color}` }}
-        >
-          <div className={`masking-tape ${app.tapeClass}`}></div>
-          <div 
-            className="w-20 h-20 rounded-full flex items-center justify-center mb-4 text-white shadow-inner transform group-hover:scale-110 transition-transform"
-            style={{ backgroundColor: app.color }}
-          >
-            <Icon name={app.icon} size={40} />
+  <div class="page">
+    <header class="wrap">
+      <div class="title-box">
+        <div class="title-inner">
+          <div class="title-row">
+            <svg width="32" height="32" aria-hidden="true" style="color:#F2CC8F"><use href="#i-egg"/></svg>
+            <h1>おんたまドリル</h1>
+            <svg width="32" height="32" aria-hidden="true" style="color:#F2CC8F"><use href="#i-egg"/></svg>
           </div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2" style={{ color: '#3D405B' }}>
-            {app.title}
-          </h2>
-          <span className="text-xs font-bold px-2 py-1 rounded bg-gray-100 text-gray-600 mb-3">
-            たいしょう: {app.grade}
-          </span>
-          <p className="text-sm text-gray-600 flex-grow">
-            {app.description}
+          <p class="title-lead">
+            いろいろな がくしゅうアプリが あつまる ばしょです。<br>
+            たのしくまなんで スコアをためてランクアップ！
           </p>
-          <button 
-            className="mt-4 px-6 py-2 rounded-full text-white font-bold transition-colors w-full"
-            style={{ backgroundColor: app.color }}
-          >
-            ひらく
-          </button>
         </div>
-      );
+      </div>
+
+      <section class="status" aria-label="いまのランク">
+        <div class="status-top">
+          <div class="status-rank">
+            <div class="lv-badge" id="lv-badge">Lv.1</div>
+            <div>
+              <p class="status-label">げんざいの ランク</p>
+              <p class="rank-title" id="rank-title">みならい タンケンカ</p>
+            </div>
+          </div>
+          <div class="status-score">
+            <p class="status-label">とけた もんだいの かず</p>
+            <p class="score-value"><span id="score-value">0</span> <span>てん</span></p>
+          </div>
+        </div>
+
+        <div class="bar-labels">
+          <span id="bar-min">0 てん</span>
+          <span class="mid" id="bar-remain"></span>
+          <span id="bar-next"></span>
+        </div>
+        <div class="bar-track" role="progressbar" id="bar-track"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+             aria-label="つぎのランクまでの すすみぐあい">
+          <div class="bar-fill" id="bar-fill" style="width:0%"></div>
+        </div>
+      </section>
+
+      <div class="install-row">
+        <button class="btn-install" id="btn-install" type="button">
+          <svg width="18" height="18" aria-hidden="true"><use href="#i-download"/></svg>
+          アプリとして インストール
+        </button>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <div class="board-outer">
+        <span class="pin pin-left" aria-hidden="true"></span>
+        <span class="pin pin-right" aria-hidden="true"></span>
+        <div class="board">
+          <h2 class="section-label">スコアが たまる ドリル</h2>
+          <div class="grid" id="grid-scored"></div>
+
+          <h2 class="section-label">つかっていい サイト（スコアには入りません）</h2>
+          <div class="grid" id="grid-extra"></div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="wrap">
+      <p>アップデート情報：「100マスけいさん」「けいさんカード」「九九カード」を おんたまドリルに ふやしました。<br>
+      スマホ・タブレットに アプリとして インストールできるように なりました。</p>
+    </footer>
+  </div>
+
+  <!-- インストールのやりかた案内（iPhone / iPad の Safari など） -->
+  <div class="modal-back" id="install-guide" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ig-title">
+      <h2 id="ig-title">ホームがめんに ついかしよう</h2>
+      <p id="ig-lead"></p>
+      <ol id="ig-steps"></ol>
+      <button class="close" id="ig-close" type="button">とじる</button>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    /* =================================================================
+     *  1. データ
+     * ================================================================= */
+
+    // scored: おんたまドリルの スコア（ポイント）が たまるアプリか
+    // pale  : 背景色が うすく、白の文字・アイコンだと 読めない色か
+    var APPS = [
+      { id: 'kanji-note',   title: 'カンジノート',       grade: '1ねんせい〜', icon: 'pencil',
+        desc: '毎日コツコツ！漢字の練習をしよう。',
+        url: 'https://hot-spring-egg.github.io/kanji-note/',  color: '#E07A5F', scored: true },
+      { id: 'sansu-note',   title: 'サンスウノート',     grade: '1ねんせい〜', icon: 'calculator',
+        desc: 'すばやく正確に計算する力をつけよう！',
+        url: 'https://hot-spring-egg.github.io/sansu-note/',  color: '#81B29A', scored: true },
+      { id: 'moji-note',    title: 'モジノート',         grade: '1ねんせい〜', icon: 'pencil',
+        desc: 'ひらがな・カタカナをきれいに書こう！',
+        url: 'https://hot-spring-egg.github.io/moji-note/',   color: '#F2CC8F', scored: true, pale: true },
+      { id: 'keisan-attack', title: 'ケイサンアタック！', grade: '1ねんせい〜', icon: 'calculator',
+        desc: 'さぁ、けいさんとっくんしよう！',
+        url: 'https://hot-spring-egg.github.io/keisan-attack/', color: '#5E7A96', scored: true },
+
+      /* ---- ここから 新しく ふえた 3つ ---- */
+      { id: 'square100',    title: '100マスけいさん',    grade: '1ねんせい〜', icon: 'grid100',
+        desc: 'たて・よこ10マスにちょうせん！タイムをはかって、まえの自分をこえよう。',
+        points: 'といたマスの かずだけ ポイント',
+        url: 'https://hot-spring-egg.github.io/online-100square-calculation/', color: '#457B9D', scored: true },
+      { id: 'keisan-card',  title: 'けいさんカード',     grade: '1ねんせい〜', icon: 'cards',
+        desc: 'たしざん・ひきざんのカードをめくって、こたえをパッと出せるようになろう。',
+        points: '1かい おわると 20ポイント',
+        url: 'https://hot-spring-egg.github.io/Keisan-Card/',  color: '#A26769', scored: true },
+      { id: 'kuku-card',    title: '九九カード',         grade: '2ねんせい〜', icon: 'times',
+        desc: 'カード・クイズ・ふたりでしょうぶ。かけ算九九をまるごとマスターしよう。',
+        points: '1かい おわると 20ポイント',
+        url: 'https://hot-spring-egg.github.io/KAKE_Master/',  color: '#7B6CA8', scored: true },
+      /* ---- ここまで ---- */
+
+      { id: 'chizu-note',   title: 'チズノート',         grade: '4ねんせい〜', icon: 'map',
+        desc: '都道府県をおぼえよう！',
+        url: 'https://hot-spring-egg.github.io/chizu-note/',  color: '#3D405B', scored: true },
+      { id: 'chizu-mark',   title: 'チズキゴウノート',   grade: '3ねんせい〜', icon: 'map',
+        desc: '地図記号をおぼえよう！',
+        url: 'https://hot-spring-egg.github.io/chizu-mark-note/', color: '#8B7A8B', scored: true },
+      { id: 'kabukabu',     title: 'おんたまカブカブ',   grade: '1ねんせい〜', icon: 'coin',
+        desc: 'スコアをコインにかえてふやそう！',
+        url: 'https://hot-spring-egg.github.io/ontama-kabukabu/', color: '#E0E2E4', scored: true, pale: true },
+
+      { id: 'sushida',      title: '寿司打',             grade: '2ねんせい〜', icon: 'keyboard',
+        desc: 'ながれてくる ことばを タイピングしよう。',
+        url: 'https://sushida.net/play.html',  color: '#D47F31' },
+      { id: 'playgram',     title: 'プレイグラム',       grade: '2ねんせい〜', icon: 'keyboard',
+        desc: 'ローマ字入力を すこしずつ おぼえよう。',
+        url: 'https://typing.playgram.jp/',    color: '#6B7F5E' },
+      { id: 'typingerz',    title: 'タイピンガーZ',      grade: '2ねんせい〜', icon: 'keyboard',
+        desc: 'ゲームであそびながら タイピングれんしゅう。',
+        url: 'https://typingerz.com/',         color: '#7B5C52' },
+      { id: 'scratch',      title: 'スクラッチ',         grade: '4〜6ねんせい', icon: 'puzzle',
+        desc: 'ブロックをならべて プログラムを つくろう。',
+        url: 'https://scratch.mit.edu/',       color: '#9E473D' },
+      { id: 'viscuit',      title: 'ビスケット',         grade: '1〜4ねんせい', icon: 'puzzle',
+        desc: 'えを かいて うごかす、はじめてのプログラミング。',
+        url: 'https://www.viscuit.com/',       color: '#E4AE38', pale: true }
+    ];
+
+    // 20段階のランク
+    var RANKS = [
+      { level: 1,  min: 0,        title: 'みならい タンケンカ',           color: '#81B29A' },
+      { level: 2,  min: 10,       title: 'かけだしの レンジャー',         color: '#E07A5F' },
+      { level: 3,  min: 30,       title: 'がんばる チャレンジャー',       color: '#3D405B' },
+      { level: 4,  min: 100,      title: 'いっぱしの マイスター',         color: '#F2CC8F' },
+      { level: 5,  min: 300,      title: 'ゆめみる トラベラー',           color: '#81B29A' },
+      { level: 6,  min: 800,      title: 'のびざかりの クリエイター',     color: '#E07A5F' },
+      { level: 7,  min: 2000,     title: 'ちえの ぼうけんしゃ',           color: '#3D405B' },
+      { level: 8,  min: 5000,     title: 'ひらめきの ナビゲーター',       color: '#F2CC8F' },
+      { level: 9,  min: 10000,    title: 'はなまる キャプテン',           color: '#81B29A' },
+      { level: 10, min: 25000,    title: 'かがやく エース',               color: '#E07A5F' },
+      { level: 11, min: 50000,    title: 'ゆうきの ヒーロー',             color: '#3D405B' },
+      { level: 12, min: 100000,   title: 'きぼうの パイオニア',           color: '#F2CC8F' },
+      { level: 13, min: 250000,   title: 'みらいの プロフェッショナル',   color: '#81B29A' },
+      { level: 14, min: 500000,   title: 'すばらしき エキスパート',       color: '#E07A5F' },
+      { level: 15, min: 1000000,  title: 'たのもしい リーダー',           color: '#3D405B' },
+      { level: 16, min: 2000000,  title: 'まぼろしの マスター',           color: '#F2CC8F' },
+      { level: 17, min: 4000000,  title: 'きせきの レジェンド',           color: '#81B29A' },
+      { level: 18, min: 6000000,  title: 'むてきの チャンピオン',         color: '#E07A5F' },
+      { level: 19, min: 8000000,  title: 'ぎんがの だいスター',           color: '#3D405B' },
+      { level: 20, min: 10000000, title: 'むげんの ユニバース',           color: '#F2CC8F' }
+    ];
+
+    var SCORE_KEY = 'gogo_drill_score';
+
+    /* =================================================================
+     *  2. スコアとランク
+     * ================================================================= */
+
+    // localStorage の中身は こわれていることがある（手で書きかえた・
+    // 別バージョンが 入れた 等）。NaN のまま 表示に まわすと
+    // 「NaN てん」と 出てしまうので、ここで かならず 数に そろえる。
+    function readScore() {
+      var raw = null;
+      try { raw = localStorage.getItem(SCORE_KEY); } catch (e) { /* プライベートモード等 */ }
+      var n = parseInt(raw, 10);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    }
+
+    function rankOf(score) {
+      var last = RANKS[RANKS.length - 1];
+      for (var i = 0; i < RANKS.length - 1; i++) {
+        if (score < RANKS[i + 1].min) {
+          return { rank: RANKS[i], next: RANKS[i + 1].min, isMax: false };
+        }
+      }
+      return { rank: last, next: last.min, isMax: true };
+    }
+
+    var els = {
+      lv:     document.getElementById('lv-badge'),
+      title:  document.getElementById('rank-title'),
+      score:  document.getElementById('score-value'),
+      min:    document.getElementById('bar-min'),
+      remain: document.getElementById('bar-remain'),
+      next:   document.getElementById('bar-next'),
+      track:  document.getElementById('bar-track'),
+      fill:   document.getElementById('bar-fill')
     };
 
-    const App = () => {
-      const [isLoading, setIsLoading] = useState(true);
-      const [totalScore, setTotalScore] = useState(0);
+    var shownScore = null;
 
-      const loadScore = () => {
-        const score = parseInt(localStorage.getItem('gogo_drill_score') || '0', 10);
-        setTotalScore(score);
-      };
+    function renderScore() {
+      var score = readScore();
+      if (score === shownScore) return;   // 変わっていなければ さわらない
+      shownScore = score;
 
-      useEffect(() => {
-        loadScore();
-        window.addEventListener('focus', loadScore);
-        
-        const timer = setTimeout(() => {
-          setIsLoading(false);
-          requestAnimationFrame(() => lucide.createIcons());
-        }, 500);
-        
-        return () => {
-          clearTimeout(timer);
-          window.removeEventListener('focus', loadScore);
-        };
-      }, []);
+      var info = rankOf(score);
+      var r = info.rank;
+      var span = info.next - r.min;
+      // 最高ランクでは span が 0 になる。0 で割らないよう 先に 分岐する。
+      var percent = info.isMax ? 100
+        : Math.max(0, Math.min(100, ((score - r.min) / span) * 100));
 
-      if (isLoading) {
-        return (
-          <div className="min-h-screen flex flex-col items-center justify-center">
-            <div className="w-16 h-16 border-4 border-[#F4F1DE] border-t-[#E07A5F] rounded-full animate-spin"></div>
-            <p className="mt-4 text-[#3D405B] font-bold animate-pulse">じゅんびちゅう...</p>
-          </div>
-        );
+      els.lv.textContent = 'Lv.' + r.level;
+      els.lv.style.backgroundColor = r.color;
+      els.title.textContent = r.title;
+      els.title.style.color = r.color;
+      els.score.textContent = score.toLocaleString();
+      els.min.textContent = r.min.toLocaleString() + ' てん';
+      els.remain.textContent = info.isMax
+        ? 'MAX!'
+        : 'つぎのランクまで あと ' + (info.next - score).toLocaleString() + ' てん';
+      els.next.textContent = info.next.toLocaleString() + ' てん';
+      els.fill.style.width = percent + '%';
+      els.fill.style.backgroundColor = r.color;
+      els.track.setAttribute('aria-valuenow', Math.round(percent));
+    }
+
+    /* =================================================================
+     *  3. カードを ならべる
+     * ================================================================= */
+
+    var SITE_ORIGIN = 'hot-spring-egg.github.io';
+
+    function isExternal(url) {
+      try { return new URL(url).hostname !== SITE_ORIGIN; }
+      catch (e) { return true; }
+    }
+
+    function cardFor(app) {
+      var external = isExternal(app.url);
+      var a = document.createElement('a');
+      a.className = 'card' + (app.pale ? ' is-pale' : '');
+      a.href = app.url;
+      a.style.setProperty('--c', app.color);
+      // おんたまドリルの中のアプリは 同じタブで ひらく（端末の「もどる」で
+      // ポータルに もどれる）。よそのサイトは 別タブで ひらいて、
+      // インストールしたアプリの中に よそのサイトを かかえこまないようにする。
+      if (external) {
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
       }
 
-      const rankInfo = getRankInfo(totalScore);
-      // 動的にMAXレベル（現在は20）を判定
-      const isMaxRank = rankInfo.level === rankData.length;
-      const progressPercent = isMaxRank ? 100 : ((totalScore - rankInfo.min) / (rankInfo.next - rankInfo.min)) * 100;
+      a.innerHTML =
+        '<span class="card-icon"><svg aria-hidden="true"><use href="#i-' + app.icon + '"/></svg></span>' +
+        '<h2></h2>' +
+        '<span class="grade"></span>' +
+        '<p class="desc"></p>' +
+        (app.points
+          ? '<p class="pts"><svg aria-hidden="true"><use href="#i-star"/></svg><span></span></p>'
+          : '') +
+        '<span class="open">ひらく' +
+        (external ? ' <span class="ext">(べつのタブ)</span>' : '') + '</span>';
 
-      return (
-        <div className="min-h-screen p-4 md:p-8">
-          
-          <header className="max-w-4xl mx-auto mb-10 flex flex-col gap-4">
-            {/* タイトル部分 */}
-            <div className="bg-[#3D405B] rounded-xl p-6 shadow-lg border-8 border-[#2b2d42] relative overflow-hidden">
-              <div className="absolute inset-0 opacity-10 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIi8+CjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiMwMDAiLz4KPC9zdmc+')]"></div>
-              <div className="relative z-10 flex flex-col items-center text-center">
-                <div className="flex items-center gap-3 mb-2">
-                  <Icon name="egg" size={32} color="#F2CC8F" />
-                  <h1 className="text-3xl md:text-4xl font-bold text-white tracking-widest" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.3)' }}>
-                    おんたまドリル
-                  </h1>
-                  <Icon name="egg" size={32} color="#F2CC8F" />
-                </div>
-                <p className="text-[#F4F1DE] text-sm md:text-base mt-2">
-                  いろいろな がくしゅうアプリが あつまる ばしょです。<br/>
-                  たのしくまなんで スコアをためてランクアップ！
-                </p>
-              </div>
-            </div>
+      // 文言は textContent で入れる（データに < > が まざっても 壊れないように）
+      a.querySelector('h2').textContent = app.title;
+      a.querySelector('.grade').textContent = 'たいしょう: ' + app.grade;
+      a.querySelector('.desc').textContent = app.desc;
+      if (app.points) a.querySelector('.pts span').textContent = app.points;
+      return a;
+    }
 
-            {/* ステータス（ランク）カード */}
-            <div className="bg-white rounded-xl p-5 shadow-md border-2 border-gray-200 relative">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-inner border-4 border-white" style={{ backgroundColor: rankInfo.color }}>
-                    Lv.{rankInfo.level}
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 font-bold">げんざいの ランク</p>
-                    <p className="text-xl sm:text-2xl font-bold" style={{ color: rankInfo.color }}>{rankInfo.title}</p>
-                  </div>
-                </div>
-                
-                <div className="text-center sm:text-right">
-                  <p className="text-sm text-gray-500 font-bold mb-1">とけた もんだいの かず</p>
-                  <p className="text-3xl font-bold text-[#3D405B]">
-                    {totalScore.toLocaleString()} <span className="text-lg">てん</span>
-                  </p>
-                </div>
-              </div>
+    function renderCards() {
+      var scored = document.createDocumentFragment();
+      var extra = document.createDocumentFragment();
+      APPS.forEach(function (app) {
+        (app.scored ? scored : extra).appendChild(cardFor(app));
+      });
+      document.getElementById('grid-scored').appendChild(scored);
+      document.getElementById('grid-extra').appendChild(extra);
+    }
 
-              {/* プログレスバー */}
-              <div className="mt-4">
-                <div className="flex justify-between text-xs font-bold text-gray-500 mb-1">
-                  <span>{rankInfo.min.toLocaleString()} てん</span>
-                  <span>{isMaxRank ? 'MAX!' : `つぎのランクまで あと ${(rankInfo.next - totalScore).toLocaleString()} てん`}</span>
-                  <span>{isMaxRank ? '10,000,000 てん' : `${rankInfo.next.toLocaleString()} てん`}</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-4 shadow-inner overflow-hidden">
-                  <div 
-                    className="h-full rounded-full transition-all duration-1000 ease-out progress-bar-striped"
-                    style={{ width: `${progressPercent}%`, backgroundColor: rankInfo.color }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-          </header>
+    /* =================================================================
+     *  4. インストール（PWA）
+     * ================================================================= */
 
-          <main className="max-w-4xl mx-auto">
-            <div className="relative">
-              <div className="absolute -top-3 -left-3 w-6 h-6 rounded-full bg-red-500 shadow-md border border-red-700 z-20 flex items-center justify-center"><div className="w-2 h-2 rounded-full bg-white opacity-60 absolute top-1 left-1"></div></div>
-              <div className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-blue-500 shadow-md border border-blue-700 z-20 flex items-center justify-center"><div className="w-2 h-2 rounded-full bg-white opacity-60 absolute top-1 left-1"></div></div>
+    var installBtn = document.getElementById('btn-install');
+    var guide = document.getElementById('install-guide');
 
-              <div className="bg-[#e8e4cf] p-6 md:p-8 rounded-lg shadow-inner border border-[#d4d0bc]">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
-                  {appData.map(app => (
-                    <AppCard key={app.id} app={app} />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </main>
-          
-          <footer className="mt-12 text-center text-[#3D405B] text-sm font-bold opacity-70">
-            <p>アップデート情報：つかっていいサイトをおんたまドリルにふやしました。</p>
-          </footer>
-        </div>
-      );
+    function isStandalone() {
+      return window.matchMedia('(display-mode: standalone)').matches ||
+             window.navigator.standalone === true;
+    }
+
+    var ua = navigator.userAgent;
+    // iPadOS 13以降の Safari は Mac を名のる。タッチできる Mac は
+    // 事実上 iPad なので、それも iOS 側として あつかう。
+    var isIOS = /iPad|iPhone|iPod/.test(ua) ||
+                (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+
+    var GUIDE = {
+      ios: {
+        lead: 'Safari の 下（または 上）にある 「共有」ボタンから ついかできます。',
+        steps: ['がめんの したにある 共有ボタン（□に↑）を おす',
+                'メニューを 下に スクロールする',
+                '「ホーム画面に追加」を おす',
+                'みぎ上の 「追加」を おす']
+      },
+      other: {
+        lead: 'ブラウザの メニューから ついかできます。',
+        steps: ['ブラウザの メニュー（︙ や ・・・）を ひらく',
+                '「アプリをインストール」または 「ホーム画面に追加」を えらぶ',
+                'かくにんの がめんで 「インストール」を おす']
+      }
     };
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+    function openGuide() {
+      var g = isIOS ? GUIDE.ios : GUIDE.other;
+      document.getElementById('ig-lead').textContent = g.lead;
+      var ol = document.getElementById('ig-steps');
+      ol.textContent = '';
+      g.steps.forEach(function (s) {
+        var li = document.createElement('li');
+        li.textContent = s;
+        ol.appendChild(li);
+      });
+      guide.hidden = false;
+      document.getElementById('ig-close').focus();
+    }
+
+    function closeGuide() {
+      guide.hidden = true;
+      installBtn.focus();
+    }
+
+    function showInstallButton() {
+      if (isStandalone()) return;
+      installBtn.classList.add('is-shown');
+    }
+
+    function hideInstallButton() {
+      installBtn.classList.remove('is-shown');
+    }
+
+    installBtn.addEventListener('click', function () {
+      var deferred = window.__deferredInstallPrompt;
+      if (deferred) {
+        deferred.prompt();
+        deferred.userChoice.then(function (choice) {
+          if (choice && choice.outcome === 'accepted') hideInstallButton();
+        }).catch(function () { /* すぐ閉じられた場合など */ });
+        window.__deferredInstallPrompt = null;
+        return;
+      }
+      openGuide();   // Safari など beforeinstallprompt が 無いブラウザ
+    });
+
+    document.getElementById('ig-close').addEventListener('click', closeGuide);
+    guide.addEventListener('click', function (e) { if (e.target === guide) closeGuide(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !guide.hidden) closeGuide();
+    });
+
+    window.addEventListener('pwa-installable', showInstallButton);
+    window.addEventListener('pwa-installed', hideInstallButton);
+
+    /* =================================================================
+     *  5. 起動
+     * ================================================================= */
+
+    renderCards();
+    renderScore();
+
+    // ドリルから もどってきたときに スコアを 最新にする。
+    //   focus だけでは、スマホで タブを 切りかえて もどった場合や
+    //   「もどる」で bfcache から 復帰した場合に 更新されないことがある。
+    window.addEventListener('focus', renderScore);
+    window.addEventListener('pageshow', renderScore);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) renderScore();
+    });
+    // 同じサイトの別タブで ドリルに とりくんだ場合
+    window.addEventListener('storage', function (e) {
+      if (!e.key || e.key === SCORE_KEY) renderScore();
+    });
+
+    // すでに インストール条件を みたしていた場合（合図が 先に 来ていた）
+    if (window.__deferredInstallPrompt) showInstallButton();
+    // Safari など 合図の 出ないブラウザにも 案内を 出す
+    if (isIOS && !isStandalone()) showInstallButton();
+
+    /* =================================================================
+     *  6. Service Worker（オフラインでも ひらけるように）
+     * ================================================================= */
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./sw.js').catch(function () {
+          /* 登録できなくても ふつうに つかえます */
+        });
+      });
+    }
+  })();
   </script>
 </body>
 </html>

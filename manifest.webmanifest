@@ -1,0 +1,28 @@
+{
+  "name": "おんたまドリル",
+  "short_name": "おんたまドリル",
+  "description": "小学生向けの学習ドリルアプリがあつまるポータル。漢字・計算・地図などのドリルに取り組んでスコアをためると、ランクが上がります。",
+  "lang": "ja",
+  "dir": "ltr",
+
+  "_comment_id": "id はこのアプリの『背番号』。同じサイト（hot-spring-egg.github.io）には他のドリルも同居していて、ブラウザは id / scope でアプリを見わけている。省略すると start_url が代わりに背番号として使われ、start_url を少し直しただけで別アプリ扱いになったり、似た構成の別アプリと取りちがえられて『ページが他のアプリのウィンドウで開く』原因になる。フォルダ名を変えるときは id・scope・start_url をすべて書きかえること。",
+  "id": "/ontama-drill/",
+  "start_url": "/ontama-drill/?source=pwa",
+  "scope": "/ontama-drill/",
+
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "launch_handler": {
+    "client_mode": ["navigate-existing", "auto"]
+  },
+  "orientation": "any",
+  "background_color": "#F4F1DE",
+  "theme_color": "#3D405B",
+  "categories": ["education", "kids"],
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "./icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
