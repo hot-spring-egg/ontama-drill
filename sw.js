@@ -8,7 +8,7 @@
  *  （古い保存を そうじして、新しいファイルに 入れかえます）
  * ===================================================================== */
 
-const VERSION = 'v1.1.4';
+const VERSION = 'v1.0.1';
 
 // このアプリ専用の 名ふだ。
 // キャッシュ置き場（CacheStorage）は hot-spring-egg.github.io というサイト
@@ -31,10 +31,6 @@ const CORE_ASSETS = [
   './icons/maskable-192.png',
   './icons/maskable-512.png',
   './icons/apple-touch-icon.png',
-  // タイピングノート（このポータルの フォルダの中に 同居している ドリル）
-  './typing/',
-  './typing/index.html',
-  './typing/ontamaScore.js',
 ];
 
 // インストール：コアファイルを まとめて保存
@@ -80,15 +76,12 @@ self.addEventListener('fetch', (event) => {
   // ページの表示（ナビゲーション）：通信を先に試し、ダメなら 保存した index.html。
   // ※ caches.match（置き場ぜんたい検索）は つかわない。置き場は サイト全体で
   //   共有なので、ほかのドリルが 保存した ページを 取りだしてしまうおそれがある。
-  // ※ /ontama-drill/typing/ は タイピングノートの ページを 返す（ポータルを 返さない）。
   if (req.mode === 'navigate') {
-    const typingPath = new URL('./typing/', self.registration.scope).pathname;
-    const page = url.pathname.startsWith(typingPath) ? './typing/index.html' : './index.html';
     event.respondWith(
       fetch(req).catch(() =>
         caches
           .open(CORE_CACHE)
-          .then((c) => c.match(page, { ignoreSearch: true }))
+          .then((c) => c.match('./index.html', { ignoreSearch: true }))
           .then((r) => r || Response.error())
       )
     );
