@@ -261,16 +261,16 @@
     .hands { display: flex; justify-content: center; gap: clamp(4px, 2vw, 24px); width: 100%; }
     .hand { height: clamp(100px, 24vh, 190px); width: auto; overflow: visible; }
     .hand.right { transform: scaleX(-1); }
-    .hand .line { fill: #FFF8F1; stroke: #4A4560; stroke-width: 5; stroke-linejoin: round; }
-    .hand .fill { fill: #FFF8F1; }
-    .finger .nail { fill: var(--tp); stroke: #4A4560; stroke-width: 1.4; transition: fill .15s; }
+    .hand .line { fill: #F6D2B8; stroke: #4A4560; stroke-width: 5; stroke-linejoin: round; }
+    .hand .fill { fill: #F6D2B8; }
+    .finger .nail { fill: var(--tc); fill-opacity: .55; stroke: #4A4560; stroke-width: 1.4; transition: fill-opacity .15s; }
     .finger .ring { fill: none; stroke: var(--tc); stroke-width: 13; stroke-linejoin: round; opacity: 0; transition: opacity .15s; }
     .finger[data-f="5"] { --tp: var(--f5p); --tc: var(--f5); }
     .finger[data-f="4"] { --tp: var(--f4p); --tc: var(--f4); }
     .finger[data-f="3"] { --tp: var(--f3p); --tc: var(--f3); }
     .finger[data-f="2"] { --tp: var(--f2p); --tc: var(--f2); }
     .finger[data-f="1"] { --tp: var(--f1p); --tc: var(--f1); }
-    .finger.on .nail, .finger.lit .nail { fill: var(--tc); }
+    .finger.on .nail, .finger.lit .nail { fill-opacity: 1; }
     .finger.on .ring { opacity: 1; }
     .finger.lit .ring { opacity: .45; }
     .finger.on { animation: hop .7s ease-in-out infinite; }
