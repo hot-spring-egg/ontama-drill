@@ -257,28 +257,24 @@
     .kb.blind .key span { visibility: hidden; }
     .kb.blind .key.target { background: var(--p); color: var(--navy); transform: none; box-shadow: none; animation: none; }
 
-    /* ---------- て（ゆびたま） ---------- */
+    /* ---------- て ---------- */
     .hands { display: flex; justify-content: center; gap: clamp(8px, 6vw, 70px); width: 100%; }
-    .hand { height: clamp(80px, 19vh, 150px); width: auto; overflow: visible; }
+    .hand { height: clamp(90px, 22vh, 175px); width: auto; overflow: visible; }
     .hand.right { transform: scaleX(-1); }
-    .hand .skin { fill: #FBE3D0; stroke: #E5BFA2; stroke-width: 2.5; }
-    .finger .tip { fill: var(--tp); stroke: rgba(0,0,0,.08); stroke-width: 1.5; transition: fill .15s; }
-    .finger .face { opacity: .55; transition: opacity .15s; }
-    .finger .mouth-o { display: none; }
+    .hand .skin { fill: #FBE1CD; stroke: #DDB194; stroke-width: 2; stroke-linejoin: round; }
+    .hand .crease { fill: none; stroke: #E2B79A; stroke-width: 1.6; stroke-linecap: round; }
+    .finger .nail { fill: var(--tp); stroke: rgba(0,0,0,.12); stroke-width: 1; transition: fill .15s; }
+    .finger .ring { fill: none; stroke: var(--tc); stroke-width: 7; stroke-linejoin: round; opacity: 0; transition: opacity .15s; }
     .finger[data-f="5"] { --tp: var(--f5p); --tc: var(--f5); }
     .finger[data-f="4"] { --tp: var(--f4p); --tc: var(--f4); }
     .finger[data-f="3"] { --tp: var(--f3p); --tc: var(--f3); }
     .finger[data-f="2"] { --tp: var(--f2p); --tc: var(--f2); }
     .finger[data-f="1"] { --tp: var(--f1p); --tc: var(--f1); }
-    .finger { transform-box: fill-box; transform-origin: 50% 100%; }
-    .finger.on .tip { fill: var(--tc); }
-    .finger.on .face { opacity: 1; }
-    .finger.on .mouth-o { display: inline; }
-    .finger.on .mouth-s { display: none; }
+    .finger.on .nail, .finger.lit .nail { fill: var(--tc); }
+    .finger.on .ring { opacity: 1; }
+    .finger.lit .ring { opacity: .45; }
     .finger.on { animation: hop .7s ease-in-out infinite; }
-    .finger.lit .tip { fill: var(--tc); }
-    .finger.lit .face { opacity: 1; }
-    @keyframes hop { 50% { transform: translateY(-7px); } }
+    @keyframes hop { 50% { transform: translateY(-8px); } }
 
     /* ---------- じゅんび（ホームポジション） ---------- */
     .ready-card { width: 100%; max-width: 820px; padding: 26px clamp(14px, 4vw, 28px) 16px; text-align: center; margin-top: 8px; }
@@ -447,7 +443,7 @@
     .field.shake { animation: shake .3s; }
     /* ゲーム中は 数字の だんを はぶいて、てを すこし ちいさく（1画面に おさめる） */
     #s-game .kb-row:first-child { display: none; }
-    #s-game .hand { height: clamp(64px, 13vh, 120px); }
+    #s-game .hand { height: clamp(72px, 15vh, 135px); }
 
     /* ---------- ためしうち ---------- */
     .guide-card { width: 100%; max-width: 900px; padding: 24px clamp(12px, 3vw, 24px) 16px; text-align: center; margin-top: 8px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
@@ -666,7 +662,7 @@
     <div class="paper guide-card">
       <div class="tape blue"></div>
       <h2>🖐️ ためしうち</h2>
-      <p>キーボードの すきな キーを おしてみよう。<br>その キーを うつ <b>ゆびたま</b>が ぴょんと はねるよ。</p>
+      <p>キーボードの すきな キーを おしてみよう。<br>その キーを うつ ゆびが ぴょんと はねるよ。</p>
       <div class="last-key" id="last-key"><span class="t" style="color:#9ca3af">（まだ おしていないよ）</span></div>
       <div class="kb-slot"></div>
       <div class="legend">
@@ -683,8 +679,8 @@
   <div class="dock" id="dock">
     <div class="kb" id="kb"></div>
     <div class="hands">
-      <svg class="hand left" id="hand-l" viewBox="0 0 240 182" aria-hidden="true"></svg>
-      <svg class="hand right" id="hand-r" viewBox="0 0 240 182" aria-hidden="true"></svg>
+      <svg class="hand left" id="hand-l" viewBox="0 0 240 244" aria-hidden="true"></svg>
+      <svg class="hand right" id="hand-r" viewBox="0 0 240 244" aria-hidden="true"></svg>
     </div>
   </div>
 
@@ -795,35 +791,49 @@
       kbEl.appendChild(row);
     })();
 
-    /* ---------- て（ゆびたま）を つくる ---------- */
-    // 左手の形。右手は CSS で 左右反転して つかう。
-    var FINGER_SHAPES = [   // n, x, y(上はし), w, h
-      { n: 5, x: 22,  y: 56, w: 34, h: 84 },
-      { n: 4, x: 60,  y: 26, w: 34, h: 110 },
-      { n: 3, x: 98,  y: 12, w: 34, h: 120 },
-      { n: 2, x: 136, y: 28, w: 34, h: 104 }
+    /* ---------- て を つくる ---------- */
+    // 左手を 上から見た形（てのひらを下に してキーボードに おいた ところ）。
+    // 右手は CSS で 左右反転して つかう。
+    // ゆび：つけねの位置(bx,by)・ながさL・つけねの はば wb・ゆびさきの はば wt・かたむき a(度)
+    var FINGER_SHAPES = [
+      { n: 5, bx: 50,  by: 128, L: 60, wb: 25, wt: 21, a: -12 },
+      { n: 4, bx: 81,  by: 112, L: 80, wb: 27, wt: 23, a: -5 },
+      { n: 3, bx: 113, by: 106, L: 90, wb: 28, wt: 24, a: 0 },
+      { n: 2, bx: 145, by: 112, L: 80, wb: 28, wt: 24, a: 6 },
+      { n: 1, bx: 160, by: 176, L: 72, wb: 34, wt: 27, a: 38 }
     ];
-    function handSVG(side) {
-      var s = '';
-      s += '<rect class="skin" x="22" y="96" width="150" height="80" rx="36"/>';
-      FINGER_SHAPES.forEach(function (f) {
-        s += fingerSVG(side + f.n, f.n, f.x, f.y, f.w, f.h, '');
-      });
-      // おやゆび：ななめに
-      s += fingerSVG(side + '1', 1, 160, 104, 34, 72, 'rotate(40 177 176)');
-      return s;
+    function r1(v) { return Math.round(v * 10) / 10; }
+    function fingerPath(f) {
+      var hb = f.wb / 2, ht = f.wt / 2, top = -(f.L - ht);
+      return 'M' + -hb + ' 26 L' + -hb + ' 0 C' + -hb + ' ' + r1(-f.L * 0.5) + ' ' + -ht + ' ' + r1(-f.L * 0.7) + ' ' + -ht + ' ' + r1(top) +
+        ' A' + ht + ' ' + ht + ' 0 0 1 ' + ht + ' ' + r1(top) +
+        ' C' + ht + ' ' + r1(-f.L * 0.7) + ' ' + hb + ' ' + r1(-f.L * 0.5) + ' ' + hb + ' 0 L' + hb + ' 26 Z';
     }
-    function fingerSVG(id, n, x, y, w, h, rot) {
-      var cx = x + w / 2, cy = y + w / 2 + 1;
-      return '<g class="finger" data-f="' + n + '" data-id="' + id + '"' + (rot ? ' transform="' + rot + '"' : '') + '>' +
-        '<rect class="skin" x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="' + (w / 2) + '"/>' +
-        '<circle class="tip" cx="' + cx + '" cy="' + cy + '" r="' + (w / 2 - 2) + '"/>' +
-        '<g class="face">' +
-          '<circle cx="' + (cx - 5) + '" cy="' + (cy - 1) + '" r="2.2" fill="#3D405B"/>' +
-          '<circle cx="' + (cx + 5) + '" cy="' + (cy - 1) + '" r="2.2" fill="#3D405B"/>' +
-          '<path class="mouth-s" d="M' + (cx - 3) + ' ' + (cy + 4) + ' q3 3 6 0" fill="none" stroke="#3D405B" stroke-width="1.8" stroke-linecap="round"/>' +
-          '<ellipse class="mouth-o" cx="' + cx + '" cy="' + (cy + 6) + '" rx="3" ry="3.4" fill="#3D405B"/>' +
+    function fingerSVG(side, f) {
+      var d = fingerPath(f);
+      var crease = '';
+      [0.34, 0.64].forEach(function (t) {
+        var y = -f.L * t, w = (f.wb + (f.wt - f.wb) * t) * 0.27;
+        crease += '<path class="crease" d="M' + r1(-w) + ' ' + r1(y) + ' q' + r1(w) + ' 2.6 ' + r1(w * 2) + ' 0"/>';
+      });
+      var nw = f.wt * 0.6, nh = f.L * 0.2;
+      return '<g transform="translate(' + f.bx + ' ' + f.by + ') rotate(' + f.a + ')">' +
+        '<g class="finger" data-f="' + f.n + '" data-id="' + side + f.n + '">' +
+          '<path class="ring" d="' + d + '"/>' +
+          '<path class="skin" d="' + d + '"/>' + crease +
+          '<rect class="nail" x="' + r1(-nw / 2) + '" y="' + r1(-f.L + 3) + '" width="' + r1(nw) + '" height="' + r1(nh) + '" rx="' + r1(nw * 0.45) + '"/>' +
         '</g></g>';
+    }
+    function handSVG(side) {
+      var s = '<defs><linearGradient id="palm-' + side + '" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0" stop-color="#FBE1CD"/><stop offset="1" stop-color="#F3CDB2"/></linearGradient></defs>';
+      FINGER_SHAPES.forEach(function (f) { s += fingerSVG(side, f); });
+      // てのひら（ゆびの つけねを かくす）＋ てくび
+      s += '<path class="skin palm" fill="url(#palm-' + side + ')" d="M36 124 C32 158 40 190 60 210 L62 240 L146 240 L148 214 ' +
+           'C160 204 170 190 174 176 C176 162 168 150 162 142 C162 130 161 118 160 108 C128 94 78 96 36 124 Z"/>';
+      // ゆびの つけねの ほね（ナックル）
+      s += '<path class="crease" d="M52 128 q4 -3 8 -1 M83 113 q4 -3 8 -1 M115 108 q4 -3 8 -1 M146 114 q4 -3 8 -1"/>';
+      return s;
     }
     document.getElementById('hand-l').innerHTML = handSVG('L');
     document.getElementById('hand-r').innerHTML = handSVG('R');
